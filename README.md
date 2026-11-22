@@ -88,6 +88,10 @@ values, exports PNG figures, and writes numerical signals and the test matrix
 as CSV. See [TEST_MATRIX.md](TEST_MATRIX.md) for scenarios, expected behavior,
 noise settings and pass/fail criteria. This runner passes its nominal frequency
 and threshold explicitly; it does not change the older Fig. 8 demo defaults.
+These are software checks of the controller, not defined power-system stress
+tests. Power-system evaluation should use the generator-trip, fault and line-trip
+events from the paper in PSCAD. The guide defines the required operating points,
+BESS power/energy limits and measurements for that separate evaluation.
 
 **Start with `python/simple_bess.py`** for the readable function-by-function
 version. It has no controller classes, enums or configuration objects:

@@ -1,5 +1,50 @@
 # Artificial frequency test matrix
 
+## Scope: controller checks versus power-system evaluation
+
+The existing 16-profile suite is a **software controller verification matrix**.
+Its invented frequency trajectories check branches, timing and arithmetic.
+Neither an abrupt reversal nor a smoothed reversal is, by itself, a defined
+power-system disturbance. Smoothness alone does not establish physical validity.
+Passing this suite does not validate a BESS against power-system contingencies.
+
+A **BESS operating-limit test** must state the disturbance, network operating
+point, BESS ratings, initial SOC, response obligation and acceptance criteria.
+Stress means approaching a specified power, energy, SOC or response-time limit
+under that condition; it does not mean drawing a large arbitrary frequency swing.
+
+For power-system evaluation, use the PSCAD events described in the paper:
+
+| System event | Source of frequency | What to evaluate at the BESS |
+| --- | --- | --- |
+| Trip generators 1-4 (paper Case 1) | Simulated target-generator frequency following the generation loss | Discharge response, PCS saturation, available discharge energy, lower-SOC override and recovery |
+| Three-phase fault at bus 11, cleared after five cycles (paper Case 2) | Target-generator frequency from the fault and clearing simulation | Activation and response timing, electrical torque and post-fault frequency response; a frequency-only input cannot assess converter voltage/current behavior |
+| Trip the line between buses 16-17 (paper Case 3) | Target-generator frequency from the changed network topology | Direction and magnitude of BESS response determined by that simulation, power limits, SOC evolution and recovery |
+
+Repeat each actual system event at low, center and high initial SOC, and at
+the relevant pre-disturbance generation/load operating points. Compare matched
+simulations with conventional governor control and the proposed BESS control,
+as in the paper. A prescribed frequency playback can verify controller response
+to the trace; only the closed-loop simulation establishes its effect on frequency.
+
+For each case, record:
+
+- Network disturbance, location, start/clearing time, operating point and models.
+- Frequency deviation, nadir/peak, RoCoF and recovery from the network model.
+- BESS activation delay, requested/applied power, peak `abs(P)/PCS_rating`,
+  time in saturation, SOC minimum/maximum and recovery time.
+- Delivered/absorbed energy and available battery energy/headroom. Under the
+  current ideal-battery assumption, discharge availability is
+  `E_capacity * (SOC - SOC_min)` and charge headroom is
+  `E_capacity * (SOC_max - SOC)`; the full model must account for its efficiencies.
+- Correct emergency override and retained SOC contribution, plus converter
+  current/voltage limits when those models are present.
+
+Acceptance limits for frequency, response delay and recovery must come from
+the selected study requirements; none are invented here. Numerical parameters
+for network dynamics cannot be recovered from Table 1 alone. The current Python
+suite does not yet generate these PSCAD contingency responses.
+
 The test runner is `python/test_frequency_signals.py`. Functions are separated
 into waveform creation, noise generation, case evaluation and PNG plotting.
 It exercises the functional controller in `python/simple_bess.py`.
@@ -66,12 +111,12 @@ unless the row explicitly states otherwise. Event interval ends are exclusive.
 | held_bias | +0.8 Hz, 10-2000 s | Early activation captures nonzero recovery bias for appropriate initial SOC |
 
 The delayed-sensor example is a pure transport delay, not a sensor estimator
-or delay compensation algorithm. The 2-second delay is an assumed stress case.
+or delay compensation algorithm. The 2-second delay is an assumed software test setting.
 
 The reversal waveform has continuous frequency and continuous first derivative,
 with zero slope at the specified time points. Its maximum absolute rate of
-change before measurement noise is approximately **0.63 Hz/s**. This is a severe
-synthetic excursion, not a validated network response. The noise is interpreted
+change before measurement noise is approximately **0.63 Hz/s**. This is an
+invented controller input, not a power-system contingency. The noise is interpreted
 as measurement noise. The other step/pulse profiles remain deliberate abrupt
 logic tests; they should not be interpreted as physical grid-frequency dynamics.
 
@@ -112,7 +157,7 @@ py -m unittest discover -s tests -v
   of noisy input/delayed measurement, activation indicator, SOC and power.
   The reversal plot also shows the smooth underlying waveform before noise.
 - `held_bias.png`: full-duration response at 70% initial SOC to show held bias.
-- `frequency_inputs.csv`: time and the 16 physical-frequency signals; reusable
+- `frequency_inputs.csv`: time and the 16 artificial frequency inputs; reusable
   input data, with noise already included. The delayed measurement is formed
   by the evaluator for the sensor-delay case.
 - `test_matrix.csv`: parameters, pass/fail, failed rule names, states visited,

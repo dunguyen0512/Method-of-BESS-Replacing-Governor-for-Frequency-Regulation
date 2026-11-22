@@ -1,4 +1,4 @@
-"""Seed-100 artificial frequency signals and a BESS evaluation matrix."""
+"""Seed-100 software controller checks; not power-system contingency tests."""
 import argparse
 import csv
 import math
@@ -55,8 +55,8 @@ def signal_offset(name, time_s):
         return sign * 0.5 + 0.015 * math.sin(2 * math.pi * time_s)
     if name == "reversal":
         # Half-cosine transitions have continuous frequency and zero slope at
-        # each knot. Peak |df/dt| is about 0.63 Hz/s in this severe synthetic
-        # event. Gaussian noise is measurement noise, not physical dynamics.
+        # each knot. Peak |df/dt| is about 0.63 Hz/s in this invented logic
+        # input. This is not a defined power-system disturbance.
         points = [(998,0),(1000,.8),(1004,-.8),(1008,.8),(1012,0)]
         for (t0,f0),(t1,f1) in zip(points,points[1:]):
             if t0 <= time_s < t1:
