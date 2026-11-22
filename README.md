@@ -23,7 +23,7 @@ py -m pip install -r requirements-plot.txt
 py python/simulate_figure8.py
 ```
 
-Open `results/figure8_state_machine.png`. PDF, SVG and CSV are also exported.
+Open `results/figure8_state_machine.png`. This command exports PNG only.
 This illustrative example uses a prescribed frequency disturbance and an ideal
 6.25 MWh battery energy balance to calculate SOC. It is not a reproduction of
 the original Fig. 8 data or a grid simulation. See [TESTING.md](TESTING.md).

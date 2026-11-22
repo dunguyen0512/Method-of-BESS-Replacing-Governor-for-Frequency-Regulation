@@ -35,10 +35,9 @@ def plot_case(rows, config, output_stem, title):
         ax.legend(loc="best", fontsize=8)
     stem = Path(output_stem)
     stem.parent.mkdir(parents=True, exist_ok=True)
-    for extension in ["png", "pdf", "svg"]:
-        fig.savefig(str(stem) + "." + extension, dpi=200)
+    fig.savefig(str(stem) + ".png", dpi=200)
     plt.close(fig)
-    print(f"Charts: {stem}.png / .pdf / .svg")
+    print(f"Figure: {stem}.png")
 
 
 def plot_csv(csv_path, config, directory):

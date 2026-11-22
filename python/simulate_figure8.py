@@ -1,6 +1,5 @@
 """Illustrative Fig. 8-style SOC response to a prescribed frequency event."""
 import argparse
-import csv
 from math import isfinite
 from pathlib import Path
 
@@ -59,12 +58,7 @@ if __name__ == "__main__":
         config, rows = simulate(args.dt, args.duration, args.initial_soc, args.energy_mwh)
         stem = Path(args.output)
         stem.parent.mkdir(parents=True, exist_ok=True)
-        with Path(str(stem) + ".csv").open("w", newline="", encoding="utf-8") as target:
-            writer = csv.DictWriter(target, fieldnames=list(rows[0]))
-            writer.writeheader()
-            writer.writerows(rows)
         plot_case(rows, config, stem, "Illustrative Figure 8-style example (not original paper data)")
-        print(f"Data: {stem}.csv")
     except ImportError:
         parser.exit(2, "Install plotting dependency: py -m pip install -r requirements-plot.txt\n")
     except (ValueError, OSError) as error:

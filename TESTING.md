@@ -13,7 +13,7 @@ py python/simulate_figure8.py
 Use `python` instead of `py` if that is your working launcher. Matplotlib is
 needed only for plotting. Open `results/figure8_state_machine.png` for the three panels:
 frequency with deadband, SOC in percent, and P_SOC / P_droop / P_ESS in MW.
-PDF and SVG support high-quality export; CSV contains every numerical sample.
+The figure command exports PNG only.
 
 This new demo calculates SOC from output power using an **ideal battery**:
 `SOC_next = SOC - P_ESS_MW * dt_seconds / (3600 * energy_MWh)`.
