@@ -22,7 +22,7 @@ PROFILES = [
     ("pulse_lengths", "High/low pulses of 4.9, 5.0 and 5.1 s"),
     ("high_chatter", "Noise around upper threshold; test activation retention"),
     ("low_chatter", "Noise around lower threshold; test activation retention"),
-    ("reversal", "Opposite crossings during a hold; switch only at expiry"),
+    ("reversal", "Smooth high-low-high excursion; retained direction changes only at expiry"),
     ("ramp", "Slow ramp crosses both thresholds in both directions"),
     ("oscillation", "Repeated high/low excursions and SOC transitions"),
     ("large_events", "Large +/-2 Hz events; converter saturation and SOC limits"),
@@ -54,10 +54,14 @@ def signal_offset(name, time_s):
         sign = 1 if name == "high_chatter" else -1
         return sign * 0.5 + 0.015 * math.sin(2 * math.pi * time_s)
     if name == "reversal":
-        if 1000 <= time_s < 1002 or 1007 <= time_s < 1012:
-            return 0.8
-        if 1002 <= time_s < 1007:
-            return -0.8
+        # Half-cosine transitions have continuous frequency and zero slope at
+        # each knot. Peak |df/dt| is about 0.63 Hz/s in this severe synthetic
+        # event. Gaussian noise is measurement noise, not physical dynamics.
+        points = [(998,0),(1000,.8),(1004,-.8),(1008,.8),(1012,0)]
+        for (t0,f0),(t1,f1) in zip(points,points[1:]):
+            if t0 <= time_s < t1:
+                blend = .5 * (1-math.cos(math.pi*(time_s-t0)/(t1-t0)))
+                return f0 + (f1-f0)*blend
     if name == "ramp":
         points = [(0,0),(1000,0),(2000,1),(3000,0),(4000,-1),(5000,0),(6000,0)]
         for (t0,f0),(t1,f1) in zip(points,points[1:]):
@@ -209,8 +213,12 @@ def save_figures(times, signals, matrix, traces, base_hz, output_dir):
             rows=[r for r in rows if 995<=r[0]<=1020]
         t,f,soc,state,ps,pd,p,indicator,raw=zip(*rows)
         fig,axes=plt.subplots(4,1,figsize=(10,8),sharex=True,constrained_layout=True)
-        axes[0].plot(t,raw,label="Physical frequency",linewidth=.8)
-        axes[0].plot(t,f,label="Measured frequency",linestyle="--",linewidth=.8)
+        if name=="reversal":
+            axes[0].plot(t,[base_hz+signal_offset(name,time) for time in t],
+                         label="Smooth frequency (before noise)",linewidth=1.5)
+        axes[0].plot(t,raw,label="Noisy input frequency",linewidth=.8)
+        if name=="sensor_delay":
+            axes[0].plot(t,f,label="Delayed measurement",linestyle="--",linewidth=.8)
         axes[0].axhline(base_hz+.5,color="gray",linestyle=":")
         axes[0].axhline(base_hz-.5,color="gray",linestyle=":")
         axes[0].set_ylabel("Frequency [Hz]")

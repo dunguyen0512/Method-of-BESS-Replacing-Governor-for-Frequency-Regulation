@@ -279,7 +279,7 @@ This educational reference needs plant-specific validation before integration.
 
 ## Verification status
 
-Fourteen Python tests and the original 19 CSV expectations passed. The artificial
+Fifteen Python tests and the original 19 CSV expectations passed. The artificial
 frequency suite also passed 80 cases at 50 Hz and 80 cases at 60 Hz, with all
 nine states covered at each base frequency. See [TEST_MATRIX.md](TEST_MATRIX.md).
 The C build and C/Python comparison could not run: the installed MinGW GCC

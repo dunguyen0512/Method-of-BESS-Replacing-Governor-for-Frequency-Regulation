@@ -9,6 +9,20 @@ from test_frequency_signals import generate_signals, signal_offset, evaluate_cas
 
 
 class FrequencyMatrixTests(unittest.TestCase):
+    def test_reversal_is_smooth_and_rate_bounded(self):
+        self.assertEqual(signal_offset('reversal',998),0)
+        self.assertAlmostEqual(signal_offset('reversal',1000),.8)
+        self.assertAlmostEqual(signal_offset('reversal',1004),-.8)
+        self.assertAlmostEqual(signal_offset('reversal',1008),.8)
+        self.assertEqual(signal_offset('reversal',1012),0)
+        step=.001
+        for knot in [998,1000,1004,1008,1012]:
+            left=signal_offset('reversal',knot-step)
+            right=signal_offset('reversal',knot+step)
+            self.assertLess(abs(left-right),1e-5)
+        samples=[signal_offset('reversal',998+i*.01) for i in range(1401)]
+        self.assertLessEqual(max(abs(b-a)/.01 for a,b in zip(samples,samples[1:])),.629)
+
     def test_reproducibility_duration_and_base(self):
         time,signals=generate_signals(60,1,.03)
         time2,signals2=generate_signals(50,1,.03)

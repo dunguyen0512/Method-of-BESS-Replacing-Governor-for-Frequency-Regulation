@@ -56,7 +56,7 @@ unless the row explicitly states otherwise. Event interval ends are exclusive.
 | pulse_lengths | Alternating pulses, 4.9/5.0/5.1 s | Below/equal/above hold-time behavior; re-capture if still outside at expiry |
 | high_chatter | +0.5 Hz plus 1 Hz sine of amplitude 0.015 Hz, 1000-2000 s | Noise crosses upper threshold; latch prevents an early activation reset |
 | low_chatter | -0.5 Hz plus same sine, 1000-2000 s | Noise crosses lower threshold; latch prevents an early activation reset |
-| reversal | High 1000-1002, low 1002-1007, high 1007-1012 s | Opposite crossing cannot change the retained direction before expiry |
+| reversal | Smooth half-cosine transitions: 0 Hz at 998 s, +0.8 at 1000, -0.8 at 1004, +0.8 at 1008, 0 at 1012 | Frequency stays continuous; opposite crossing cannot change the retained direction before expiry |
 | ramp | 0 -> +1 -> 0 -> -1 -> 0 Hz, 1000-5000 s | Both activation directions, deadband re-entry and SOC response |
 | oscillation | 0.8 Hz amplitude, 120 s period, 1000-5000 s | Repeated activations and recovery; bounded power/SOC |
 | large_events | -2 Hz 1000-2500, +2 Hz 3000-4500 s | PCS saturation, available-energy limits and SOC emergency overrides |
@@ -67,6 +67,13 @@ unless the row explicitly states otherwise. Event interval ends are exclusive.
 
 The delayed-sensor example is a pure transport delay, not a sensor estimator
 or delay compensation algorithm. The 2-second delay is an assumed stress case.
+
+The reversal waveform has continuous frequency and continuous first derivative,
+with zero slope at the specified time points. Its maximum absolute rate of
+change before measurement noise is approximately **0.63 Hz/s**. This is a severe
+synthetic excursion, not a validated network response. The noise is interpreted
+as measurement noise. The other step/pulse profiles remain deliberate abrupt
+logic tests; they should not be interpreted as physical grid-frequency dynamics.
 
 ## Evaluation criteria
 
@@ -102,7 +109,8 @@ py -m unittest discover -s tests -v
 - `frequency_signals.png`: overview of all 16 full-duration inputs.
 - `test_matrix.png`: pass/fail table, profile versus initial SOC.
 - `short_high.png`, `reversal.png`, `sensor_delay.png`: focused 995-1020 s views
-  of measured/physical frequency, activation indicator, SOC and power.
+  of noisy input/delayed measurement, activation indicator, SOC and power.
+  The reversal plot also shows the smooth underlying waveform before noise.
 - `held_bias.png`: full-duration response at 70% initial SOC to show held bias.
 - `frequency_inputs.csv`: time and the 16 physical-frequency signals; reusable
   input data, with noise already included. The delayed measurement is formed
@@ -127,7 +135,7 @@ closed-loop network model.
 ## Verified default runs
 
 Both 50 Hz and 60 Hz runs passed all **80 cases** and visited states 1-9.
-The additional automated suite passed **14 Python tests**; the optional C
+The additional automated suite passed **15 Python tests**; the optional C
 comparison was skipped. In the seeded 60 Hz high-threshold chatter example,
 the instantaneous frequency-region indicator changed 4740 times, while the
 held indicator changed 178 times. This measures the specified latch behavior;
