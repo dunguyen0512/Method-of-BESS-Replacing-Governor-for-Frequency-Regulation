@@ -1,7 +1,7 @@
 # Method of BESS Replacing Governor for Frequency Regulation
 
 C and Python reconstruction of the BESS frequency-regulation controller in
-the paper below. The repo is build following the Paper
+the paper below. The repo is built following the Paper
 ## Paper
 
 Nguyen-Hoang, N.-D., et al. (2022). *Operation Method of Energy Storage System
