@@ -1,10 +1,56 @@
 # Method of BESS Replacing Governor for Frequency Regulation
 
-Simple C99 and Python implementations reconstructed from **Figure 5**, with
-Sections 3.2-3.3, Eqs. (5), (7)-(8), and Figs. 6-8 used to clarify the logic.
-This is a new reconstruction, not the recovered original C source or the full
-PSCAD/EMTDC network model. The examples exercise the controller with prescribed
-frequency/SOC inputs; they do not reproduce the paper's network results.
+C and Python reconstruction of the BESS frequency-regulation controller in
+the paper below. The control decisions follow the **Fig. 6 state machine** and
+**Fig. 7 flowchart**, with Fig. 5 and Eqs. (5), (7)-(8) defining droop and SOC
+management. Python provides standalone tests and a PNG example.
+
+## Original C implementation in PSCAD/EMTDC
+
+The author's original C controller was embedded in a **PSCAD function block**.
+PSCAD generated the frequency signal from the simulated generator/network and
+supplied it to the block. The block also received the initial SOC and control
+settings needed for the paper's BESS model. During the simulation, controller
+decisions used the current SOC of the battery model, initialized from that
+initial SOC, together with the incoming frequency signal.
+
+The intended signal path is:
+
+```text
+PSCAD generator/network -> frequency -> frequency-event latch / activation
+                                                    |
+Initial SOC -> BESS SOC calculation -> current SOC   |
+                                    |               v
+                                    +----> state machine and droop control
+                                                    |
+                                                    v
+                                       BESS active-power reference
+                                                    |
+                                                    v
+                                      PSCAD converter/battery model
+```
+
+The C implementation included a **latch for the frequency-event signal**.
+Its role was to retain the event/activation indication used to enable the
+control algorithm. The author describes a frequency-rise timing example of
+**less than 5 seconds**. Whether that timing is a trigger window or a minimum
+persistence condition, and the latch reset/release conditions, still need to
+be specified before reconstructing that part of the original implementation.
+The 5-second example comes from the author's implementation description; it
+is not a numerical setting supplied by the paper.
+
+This event latch is separate from holding the initial `P_SOC` contribution
+during droop operation (Section 3.3.2). Retaining an activation flag does not
+by itself specify that the numerical frequency measurement is frozen.
+
+**Current repository status:** the C files contain a reusable controller core
+and a standalone demonstration. The original PSCAD project, function-block
+wrapper, port mapping, SOC model, and frequency-event latch are not included.
+The present core takes current frequency and current SOC at each call; it has
+no initial-SOC input or elapsed-time input. A PSCAD wrapper must initialize the
+SOC model, preserve controller/latch state between simulation steps, and supply
+the block's activation logic. The current examples therefore do not reproduce
+the complete original PSCAD implementation or its network results.
 
 ## Paper
 
@@ -40,7 +86,7 @@ See [TESTING.md](TESTING.md) for a Windows walkthrough and creating more cases.
 Python tests run without C by default. To enable the C comparison in PowerShell,
 set `$env:BESS_TEST_C = "1"` before running unittest.
 
-C99 with GCC (Windows, Linux or macOS):
+Optional standalone C99 demonstration with GCC (separate from PSCAD integration):
 
 ```sh
 mkdir build
@@ -137,8 +183,11 @@ Do not apply the 5% generator droop directly on the 25 MW PCS base.
   inequalities in the paper's figures/equations.
 - Converter saturation and physical SOC=0/1 direction blocking are added guards.
   Reported `soc_mw` and `droop_mw` are contributions **before** these guards.
-- No hold timer is assumed: Section 3.3.2 mentions a service-dependent duration
-  but gives no value. Droop ends on deadband return or the emergency override.
+- The reconstructed core has no frequency-event latch or hold timer. Section
+  3.3.2 mentions a service-dependent duration but gives no value. In the current
+  core, droop ends on deadband return or the emergency override. The author's
+  original PSCAD implementation also used activation-latch logic, described
+  above, which remains to be reconstructed.
 - Converter dynamics, efficiencies, battery dynamics, SOC integration, network
   faults and governor dynamics are outside this simple controller's scope.
 
@@ -148,7 +197,8 @@ At SOC=0.65, the +2.5 MW recovery bias gives +18.82 MW total.
 
 ## Files and integration
 
-- `c/bess_controller.h`, `c/bess_controller.c`: reusable controller API.
+- `c/bess_controller.h`, `c/bess_controller.c`: reusable core intended for a
+  PSCAD function-block wrapper; the wrapper and activation latch are pending.
 - `c/demo.c`: standalone C example. Initialize state with `bess_reset()`.
 - `python/bess_controller.py`: equivalent Python API and runnable example.
 - `tests/test_controller.py`: numerical, boundary, transition and C/Python checks.
@@ -160,7 +210,7 @@ This educational reference needs plant-specific validation before integration.
 
 ## Verification status
 
-The four Python behavior tests passed in the reconstruction environment.
+Seven Python tests and 19 CSV expectations passed in the reconstruction environment.
 The C build and C/Python comparison could not run: the installed MinGW GCC
 failed to start with Windows error 623 (Illegal System DLL Relocation), and
 execution outside the sandbox was declined. The cross-language test is provided
