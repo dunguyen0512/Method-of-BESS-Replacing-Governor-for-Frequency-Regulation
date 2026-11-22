@@ -77,7 +77,7 @@ The compiler installation is separate from Python.
 python -m unittest discover -s tests -v
 ```
 
-Expected: seven Python tests pass, with the optional C comparison skipped.
+Expected: 15 Python tests pass, with the optional C comparison skipped.
 These check SOC boundaries, recovery magnitudes, droop calculation, held SOC
 bias, emergency overrides, saturation, reset, and invalid inputs.
 

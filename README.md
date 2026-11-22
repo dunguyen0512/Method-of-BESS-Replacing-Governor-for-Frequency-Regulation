@@ -16,9 +16,17 @@ control and SOC management, and their interaction with a generic **aggregate
 generator model** using illustrative parameters. Reproducing the Korean
 network or its topology is outside this project's scope.
 
+In the author's original work, the **aggregate generator model was built in
+Python**, integrating generator and governor/turbine models, including GENROU
+and a hydro model. Initial values were obtained from PSS/E, and the model
+parameters were supplied by the project manager. That original code was lost;
+the original integrated aggregate model has not been reconstructed here.
+
 The current Python examples use artificial frequency inputs and an ideal
-battery energy balance. They demonstrate the controller; a closed-loop
-aggregate-generator model is not yet included.
+battery energy balance to demonstrate the BESS controller. They do not include
+the lost generator-model integration, PSS/E initialization, or project-supplied
+parameters. This background describes the original implementation, not a
+capability of the current repository.
 
 ## Original C implementation in PSCAD/EMTDC
 
@@ -71,15 +79,14 @@ choice is explicit in `control_step()`. SOC emergency overrides still take prior
 This event latch is separate from holding the initial `P_SOC` contribution
 during droop operation (Section 3.3.2).
 
-**Current repository status:** the C files contain a reusable controller core
-and a standalone demonstration. The original PSCAD project, function-block
-wrapper, port mapping, SOC model, and C frequency-event latch are not included.
-The present core takes current frequency and current SOC at each call; it has
-no initial-SOC input or elapsed-time input. A PSCAD wrapper must initialize the
-SOC model, preserve controller/latch state between simulation steps, and supply
-the block's activation logic. The current examples therefore do not reproduce
-the complete original PSCAD implementation or its network results. The new
-functional Python example includes the confirmed 5-second activation latch.
+**Current repository status:** both the C controller and functional Python
+example include the 5-second frequency-event latch. C uses small numbered
+functions, with comments following Fig. 6 states and Fig. 7 branches.
+The main call is `bess_step(memory, settings, time_s, frequency_hz, current_soc, output)`.
+See [c/README.md](c/README.md) for initialization and the PSCAD call sequence.
+The original PSCAD project, wrapper, port mapping and battery/SOC model are not
+included. Initial SOC and energy capacity initialize the external battery
+model; current SOC and simulation time are supplied to the controller.
 
 ## Paper
 
@@ -182,8 +189,8 @@ gcc -std=c99 -Wall -Wextra -pedantic c/bess_controller.c c/demo.c -lm -o build/b
 ./build/bess_demo
 ```
 
-On Windows, run `./build/bess_demo.exe`. Both demos print the same six samples
-as CSV, including held SOC power and emergency overrides.
+On Windows, run `./build/bess_demo.exe`. The C demo prints seven samples with
+simulation time, latched indicator, state and power to demonstrate the hold.
 
 ## Figure 5 logic
 
@@ -213,7 +220,8 @@ Yes/No label typo; boundary conventions are documented below.
 The **Figure 8 demo** uses separate illustrative ML=0.6499, MH=0.6501 settings
 to show recovery to approximately 65%, as visible in that figure. They are
 assumptions for this example, not recovered parameters. The reusable controller
-defaults remain 0.40/0.60. No unreported 65% recovery-target latch is introduced.
+class-based Python defaults remain 0.40/0.60. The functional Python example
+and revised C defaults use 0.6499/0.6501. No recovery-target latch is introduced.
 
 Positive power means **discharging into the grid**; negative means charging.
 SOC is a fraction, frequency is Hz, and output power is MW.
@@ -236,8 +244,9 @@ SOC is a fraction, frequency is Hz, and output power is MW.
 
 At droop activation, capture the recovery power for the **current measured SOC**.
 Hold it while droop remains enabled, even if SOC crosses an interior threshold.
-Return to live SOC recovery when frequency returns inside the deadband or a
-directional emergency override disables droop. A direct frequency jump from one
+With the event latch, return to live SOC recovery when activation clears at
+re-evaluation or an emergency override disables droop. The older class-based
+Python interface instead uses instantaneous frequency. A direct frequency jump from one
 droop side to the other retains the held value if neither sample disables droop.
 Call `reset()` / `bess_reset()` when starting a new run. Keep configuration fixed
 during a run, or reset after changing it. Measurements/SOC estimation are external.
@@ -261,9 +270,10 @@ Do not apply the 5% generator droop directly on the 25 MW PCS base.
 - Table 1 supplies 60 Hz, 5% generator droop, 25 MW PCS, 6.25 MWh energy,
   and a 612 MVA generator rating. Here 612 is the numerical active-power
   per-unit base; this does not assert a 612 MW operating point.
-- **Assumed examples:** symmetric +/-0.02 Hz deadband and SOC thresholds
-  L=0.20, ML=0.40, MH=0.60, H=0.80. The paper gives no numerical values
-  for these settings. Change `Config` / `BessConfig` for your application.
+- **Earlier class-based Python defaults:** +/-0.02 Hz deadband and SOC
+  boundaries 0.20/0.40/0.60/0.80. Revised C defaults use +/-0.5 Hz and
+  0.20/0.6499/0.6501/0.80. These are assumptions/test settings, not numerical
+  thresholds supplied by the paper. Set them explicitly for your application.
 - Recovery magnitudes 15% and 10% come from Section 3.3; charging coefficients
   are negative under the explicit sign convention above.
 - Exact deadband edges count as inside (1e-12 Hz roundoff tolerance).
@@ -271,25 +281,24 @@ Do not apply the 5% generator droop directly on the 25 MW PCS base.
   inequalities in the paper's figures/equations.
 - Converter saturation and physical SOC=0/1 direction blocking are added guards.
   Reported `soc_mw` and `droop_mw` are contributions **before** these guards.
-- The reconstructed core has no frequency-event latch or hold timer. Section
-  3.3.2 mentions a service-dependent duration but gives no value. In the current
-  core, droop ends on deadband return or the emergency override. The author's
-  original PSCAD implementation also used activation-latch logic, described
-  above, which remains to be reconstructed.
+- The revised C and functional Python controllers include the author's
+  5-second frequency-event latch. The older class-based Python interface has
+  no event timer. Section 3.3.2 does not specify the numerical hold duration.
 - Converter dynamics, efficiencies, battery dynamics, SOC integration, network
   faults and governor dynamics are outside this simple controller's scope.
 
-For example, at 59.90 Hz, a zero held SOC bias gives
+For the earlier +/-0.02 Hz example, at 59.90 Hz a zero held SOC bias gives
 `P_droop = -612 * (-0.10 + 0.02) / (60 * 0.05) = +16.32 MW`.
 At SOC=0.65, the +2.5 MW recovery bias gives +18.82 MW total.
 
 ## Files and integration
 
 - `c/bess_controller.h`, `c/bess_controller.c`: reusable core intended for a
-  PSCAD function-block wrapper; the wrapper and activation latch are pending.
+  PSCAD wrapper, including frequency-event latch and SOC-bias memory.
 - `c/demo.c`: standalone C example. Initialize state with `bess_reset()`.
-- `python/bess_controller.py`: equivalent Python API and runnable example.
-- `tests/test_controller.py`: numerical, boundary, transition and C/Python checks.
+- `python/bess_controller.py`: earlier instantaneous-frequency Python API.
+- `tests/test_controller.py`: numerical, boundary and transition checks.
+- `tests/test_c_controller.py`: timed C/functional-Python comparison.
 
 Use one controller instance per BESS, supplying measured generator frequency
 and SOC each sample. Convert measured angular speed with `f = omega / (2*pi)`
@@ -301,7 +310,8 @@ This educational reference needs plant-specific validation before integration.
 Fifteen Python tests and the original 19 CSV expectations passed. The artificial
 frequency suite also passed 80 cases at 50 Hz and 80 cases at 60 Hz, with all
 nine states covered at each base frequency. See [TEST_MATRIX.md](TEST_MATRIX.md).
-The C build and C/Python comparison could not run: the installed MinGW GCC
-failed to start with Windows error 623 (Illegal System DLL Relocation), and
-execution outside the sandbox was declined. The cross-language test is provided
-for running on a working GCC installation; C compilation is not yet verified.
+The revised C code compiled with GCC using `-Wall -Wextra -Werror -pedantic`.
+All 16 tests passed, including the C/functional-Python comparison at 50/60 Hz
+(1200 samples per base, all nine states), and the standalone C demo ran.
+This verifies the C controller core, not the missing PSCAD wrapper or original
+integrated aggregate generator model.

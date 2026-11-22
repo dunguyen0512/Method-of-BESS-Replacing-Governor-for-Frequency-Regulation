@@ -186,8 +186,9 @@ closed-loop network model.
 ## Verified default runs
 
 Both 50 Hz and 60 Hz runs passed all **80 cases** and visited states 1-9.
-The additional automated suite passed **15 Python tests**; the optional C
-comparison was skipped. In the seeded 60 Hz high-threshold chatter example,
+The additional automated suite passed **15 Python tests**. The revised timed
+C controller also passed its optional C/Python comparison at 50/60 Hz, for
+**16 tests passed** when C checking is enabled. In the seeded 60 Hz high-threshold chatter example,
 the instantaneous frequency-region indicator changed 4740 times, while the
 held indicator changed 178 times. This measures the specified latch behavior;
 it does not imply that live droop power is held constant or smoothed.

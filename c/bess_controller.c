@@ -1,54 +1,190 @@
+/* Figures 6-7: state machine / flowchart from the paper.
+ * The author additionally specified the 5-second frequency-event latch.
+ * No confidential Korean network data or topology is used. */
 #include "bess_controller.h"
 #include <math.h>
-#include <stddef.h>
 
-BessConfig bess_default_config(void) {
-    BessConfig c = {60.0, 0.02, 612.0, 25.0, 0.05, 0.2, 0.4, 0.6, 0.8};
-    return c;
+/* 1. Settings for the PSCAD block. Ratings and 5% droop: paper Table 1.
+ * +/-0.5 Hz is the requested TEST threshold. SOC thresholds are illustrative,
+ * not recovered original settings. Change nominal_hz to 50 for a 50 Hz study. */
+BessConfig bess_default_config(void)
+{
+    BessConfig settings;
+    settings.nominal_hz = 60.0;
+    settings.deadband_hz = 0.5;
+    settings.generator_base_mw = 612.0;
+    settings.pcs_mw = 25.0;
+    settings.droop = 0.05;
+    settings.low = 0.20;
+    settings.medium_low = 0.6499;
+    settings.medium_high = 0.6501;
+    settings.high = 0.80;
+    settings.hold_seconds = 5.0;
+    return settings;
 }
-void bess_reset(BessController *s) {
-    if (s) { s->active = 0; s->held_soc_mw = 0.0; s->state = 0; }
+
+/* 2. Initialize ONCE at simulation start, not at every timestep.
+ * Reset again before restarting a simulation or changing settings. */
+void bess_reset(BessController *memory)
+{
+    if (!memory) return;
+    memory->droop_active = 0;
+    memory->held_soc_mw = 0.0;
+    memory->state = 0;
+    memory->frequency_indicator = 0;
+    memory->hold_until_s = 0.0;
+    memory->last_time_s = -1.0;
 }
-static int valid(const BessConfig *c) {
-    return c && isfinite(c->nominal_hz) && c->nominal_hz > 0 &&
-        isfinite(c->deadband_hz) && c->deadband_hz >= 0 && c->deadband_hz < c->nominal_hz &&
-        isfinite(c->generator_base_mw) && c->generator_base_mw > 0 &&
-        isfinite(c->pcs_mw) && c->pcs_mw > 0 && isfinite(c->droop) && c->droop > 0 &&
-        0 < c->low && c->low < c->medium_low && c->medium_low < c->medium_high &&
-        c->medium_high < c->high && c->high < 1;
+
+/* 3. Fig. 7 first two decisions: above upper / below lower frequency limit?
+ * Exact equality counts as normal; tolerance avoids roundoff activation. */
+int bess_detect_frequency(double frequency_hz, const BessConfig *settings)
+{
+    double deviation = frequency_hz - settings->nominal_hz;
+    if (deviation > settings->deadband_hz + 1e-12) return 1;
+    if (deviation < -settings->deadband_hz - 1e-12) return -1;
+    return 0;
 }
-int bess_step(BessController *s, const BessConfig *c, double f, double soc, BessOutput *out) {
-    double recovery, delta, error, droop = 0.0, power;
-    int high_f, low_f, enabled;
-    if (!s || !out || !valid(c) || !isfinite(f) || f <= 0 ||
-        !isfinite(soc) || soc < 0 || soc > 1) return -1;
-    if (soc <= c->low) recovery = -0.15 * c->pcs_mw;
-    else if (soc <= c->medium_low) recovery = -0.10 * c->pcs_mw;
-    else if (soc <= c->medium_high) recovery = 0.0;
-    else if (soc <= c->high) recovery = 0.10 * c->pcs_mw;
-    else recovery = 0.15 * c->pcs_mw;
-    delta = f - c->nominal_hz;
-    high_f = delta > c->deadband_hz + 1e-12;
-    low_f = delta < -c->deadband_hz - 1e-12;
-    /* Fig. 7: frequency checks precede the SOC recovery cascade. */
-    if (high_f) s->state = soc > c->high ? BESS_HIGH_F_HIGH_SOC : BESS_HIGH_F_DROOP;
-    else if (low_f) s->state = soc <= c->low ? BESS_LOW_F_LOW_SOC : BESS_LOW_F_DROOP;
-    else if (soc > c->high) s->state = BESS_DEADBAND_HIGH_SOC;
-    else if (soc > c->medium_high) s->state = BESS_DEADBAND_MEDIUM_HIGH_SOC;
-    else if (soc > c->medium_low) s->state = BESS_DEADBAND_CENTER;
-    else if (soc > c->low) s->state = BESS_DEADBAND_MEDIUM_LOW_SOC;
-    else s->state = BESS_DEADBAND_LOW_SOC;
-    enabled = s->state == BESS_HIGH_F_DROOP || s->state == BESS_LOW_F_DROOP;
-    if (enabled) {
-        if (!s->active) s->held_soc_mw = recovery;
-        recovery = s->held_soc_mw;
-        error = high_f ? delta - c->deadband_hz : delta + c->deadband_hz;
-        droop = -c->generator_base_mw * error / (c->nominal_hz * c->droop);
+
+/* 4. Event latch BEFORE Fig. 7: capture high/low, hold 5 seconds, re-evaluate.
+ * Deadband return or opposite crossing cannot interrupt an active hold.
+ * At expiry: normal clears it; high/low begins another hold.
+ * Hold the INDICATOR, never the measured numerical frequency. */
+int bess_latch_frequency(double time_s, int detected, double hold_seconds,
+                         BessController *memory)
+{
+    if (memory->frequency_indicator != 0 && time_s < memory->hold_until_s) {
+        return memory->frequency_indicator;
     }
-    s->active = enabled;
-    power = fmax(-c->pcs_mw, fmin(c->pcs_mw, recovery + droop));
-    if ((soc == 0 && power > 0) || (soc == 1 && power < 0)) power = 0;
-    out->soc_mw = recovery; out->droop_mw = droop;
-    out->power_mw = power; out->droop_active = enabled;
+    memory->frequency_indicator = detected;
+    memory->hold_until_s = time_s;
+    if (detected != 0) memory->hold_until_s = time_s + hold_seconds;
+    return memory->frequency_indicator;
+}
+
+/* 5. Follow Fig. 7 TOP to BOTTOM; numbers match Fig. 6.
+ * SOC emergency states 2/8 override droop even during a held event. */
+int bess_select_state(int indicator, double soc, const BessConfig *settings)
+{
+    if (indicator == 1) {
+        if (soc > settings->high) return 2; /* Emergency discharge. */
+        return 1;                         /* High-frequency droop. */
+    }
+    if (indicator == -1) {
+        if (soc <= settings->low) return 8; /* Emergency charge. */
+        return 9;                         /* Low-frequency droop. */
+    }
+    /* Normal-frequency SOC cascade: states 7 -> 6 -> 5 -> 4 -> 3. */
+    if (soc > settings->high) return 7;        /* Emergency discharge. */
+    if (soc > settings->medium_high) return 6; /* Recovery discharge. */
+    if (soc > settings->medium_low) return 5;  /* Center: zero power. */
+    if (soc > settings->low) return 4;         /* Recovery charge. */
+    return 3;                                /* Emergency charge. */
+}
+
+/* 6. Fig. 5 / Eq. (8): SOC recovery contribution, fraction of PCS rating.
+ * States 3/8: -15%; 4: -10%; 5: zero; 6: +10%; 2/7: +15%.
+ * Also computes the initial SOC bias captured on entry to states 1/9. */
+double bess_soc_power(double soc, const BessConfig *settings)
+{
+    if (soc <= settings->low) return -0.15 * settings->pcs_mw;
+    if (soc <= settings->medium_low) return -0.10 * settings->pcs_mw;
+    if (soc <= settings->medium_high) return 0.0;
+    if (soc <= settings->high) return 0.10 * settings->pcs_mw;
+    return 0.15 * settings->pcs_mw;
+}
+
+/* 7. States 1/9: Eq. (7), deadband-adjusted LIVE frequency, converted Hz to pu.
+ * Droop uses GENERATOR base (Eq. 5), not PCS base.
+ * While an indicator is held, permit only its droop direction: high charges,
+ * low discharges. Inside deadband / opposite side gives zero droop power.
+ * This direction guard is an explicit implementation choice for the latch. */
+double bess_droop_power(double frequency_hz, int state, const BessConfig *settings)
+{
+    double deviation = frequency_hz - settings->nominal_hz;
+    double error_hz = 0.0;
+    if (state == 1 && deviation > settings->deadband_hz) {
+        error_hz = deviation - settings->deadband_hz;
+    }
+    if (state == 9 && deviation < -settings->deadband_hz) {
+        error_hz = deviation + settings->deadband_hz;
+    }
+    return -settings->generator_base_mw * error_hz /
+           (settings->nominal_hz * settings->droop);
+}
+
+/* 8. Added physical guards: converter rating and SOC end stops. */
+double bess_limit_power(double power_mw, double soc, double pcs_mw)
+{
+    if (power_mw > pcs_mw) power_mw = pcs_mw;
+    if (power_mw < -pcs_mw) power_mw = -pcs_mw;
+    if (soc == 0.0 && power_mw > 0.0) power_mw = 0.0;
+    if (soc == 1.0 && power_mw < 0.0) power_mw = 0.0;
+    return power_mw;
+}
+
+/* Keep input checking outside the main control sequence for readability. */
+static int valid_settings(const BessConfig *settings)
+{
+    if (!settings) return 0;
+    if (!isfinite(settings->nominal_hz) || settings->nominal_hz <= 0) return 0;
+    if (!isfinite(settings->deadband_hz) || settings->deadband_hz < 0 ||
+        settings->deadband_hz >= settings->nominal_hz) return 0;
+    if (!isfinite(settings->generator_base_mw) || settings->generator_base_mw <= 0) return 0;
+    if (!isfinite(settings->pcs_mw) || settings->pcs_mw <= 0) return 0;
+    if (!isfinite(settings->droop) || settings->droop <= 0) return 0;
+    if (!isfinite(settings->hold_seconds) || settings->hold_seconds < 0) return 0;
+    if (!(0 < settings->low && settings->low < settings->medium_low &&
+          settings->medium_low < settings->medium_high &&
+          settings->medium_high < settings->high && settings->high < 1)) return 0;
+    return 1;
+}
+
+/* 9. MAIN FUNCTION BLOCK: call once per increasing PSCAD control-sample time.
+ * Input SOC is CURRENT SOC from the battery model, not its initial value. */
+int bess_step(BessController *memory, const BessConfig *settings,
+              double time_s, double frequency_hz, double soc, BessOutput *output)
+{
+    int detected, indicator, state, active;
+    double p_soc, p_droop, p_ess;
+    if (!memory || !output || !valid_settings(settings)) return -1;
+    if (!isfinite(time_s) || time_s < 0 || time_s <= memory->last_time_s) return -1;
+    if (!isfinite(frequency_hz) || frequency_hz <= 0) return -1;
+    if (!isfinite(soc) || soc < 0 || soc > 1) return -1;
+
+    /* A. Read the frequency region; latch its activation for 5 seconds. */
+    detected = bess_detect_frequency(frequency_hz, settings);
+    indicator = bess_latch_frequency(time_s, detected, settings->hold_seconds, memory);
+
+    /* B. Fig. 7: choose state using activation and current SOC. */
+    state = bess_select_state(indicator, soc, settings);
+    active = (state == 1 || state == 9);
+
+    /* C. Eq. (8), then Section 3.3.2: hold initial P_SOC during droop.
+     * This SOC-bias memory is SEPARATE from the frequency-event latch. */
+    p_soc = bess_soc_power(soc, settings);
+    if (active) {
+        if (!memory->droop_active) memory->held_soc_mw = p_soc;
+        p_soc = memory->held_soc_mw;
+    } else {
+        memory->held_soc_mw = 0.0;
+    }
+
+    /* D. Eq. (7): droop in states 1/9; zero in every other state. */
+    p_droop = bess_droop_power(frequency_hz, state, settings);
+
+    /* E. Fig. 7 FINAL block: P_ESS = P_droop + P_SOC, then limit power. */
+    p_ess = bess_limit_power(p_droop + p_soc, soc, settings->pcs_mw);
+
+    /* F. Retain memory for next sample; expose outputs for PSCAD plotting. */
+    memory->droop_active = active;
+    memory->state = state;
+    memory->last_time_s = time_s;
+    output->soc_mw = p_soc;
+    output->droop_mw = p_droop;
+    output->power_mw = p_ess;
+    output->droop_active = active;
+    output->frequency_indicator = indicator;
+    output->state = state;
     return 0;
 }
