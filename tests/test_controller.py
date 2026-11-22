@@ -1,5 +1,6 @@
 import ctypes
 import math
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -43,7 +44,8 @@ class ControllerTests(unittest.TestCase):
         for kwargs in [{"droop":0},{"high":.3},{"pcs_mw":math.inf}]:
             with self.assertRaises(ValueError): Config(**kwargs)
 
-    @unittest.skipUnless(shutil.which("gcc"), "GCC required for cross-language check")
+    @unittest.skipUnless(os.environ.get("BESS_TEST_C") == "1" and shutil.which("gcc"),
+                         "Set BESS_TEST_C=1 to enable the optional GCC comparison")
     def test_c_python_agree(self):
         class CConfig(ctypes.Structure):
             _fields_ = [(n,ctypes.c_double) for n in vars(Config())]

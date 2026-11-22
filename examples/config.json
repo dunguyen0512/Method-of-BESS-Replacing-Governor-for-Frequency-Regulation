@@ -1,0 +1,11 @@
+{
+  "nominal_hz": 60.0,
+  "deadband_hz": 0.02,
+  "generator_base_mw": 612.0,
+  "pcs_mw": 25.0,
+  "droop": 0.05,
+  "low": 0.20,
+  "medium_low": 0.40,
+  "medium_high": 0.60,
+  "high": 0.80
+}

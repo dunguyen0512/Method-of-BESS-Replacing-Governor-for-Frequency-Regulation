@@ -21,7 +21,12 @@ Python 3.8+ (standard library only):
 ```sh
 python python/bess_controller.py
 python -m unittest discover -s tests -v
+python python/run_cases.py examples/fig5_cases.csv
 ```
+
+See [TESTING.md](TESTING.md) for a Windows walkthrough and creating more cases.
+Python tests run without C by default. To enable the C comparison in PowerShell,
+set `$env:BESS_TEST_C = "1"` before running unittest.
 
 C99 with GCC (Windows, Linux or macOS):
 
