@@ -1,9 +1,14 @@
 # Method of BESS Replacing Governor for Frequency Regulation
 
 C and Python reconstruction of the BESS frequency-regulation controller in
-the paper below. The control decisions follow the **Fig. 6 state machine** and
-**Fig. 7 flowchart**, with Fig. 5 and Eqs. (5), (7)-(8) defining droop and SOC
-management. Python provides standalone tests and a PNG example.
+the paper below. The repo is build following the Paper
+## Paper
+
+Nguyen-Hoang, N.-D., et al. (2022). *Operation Method of Energy Storage System
+Replacing Governor for Frequency Regulation of Synchronous Generator without
+Reserve*. **Energies, 15**, 798. https://doi.org/10.3390/en15030798
+
+The paper is CC BY 4.0. The PDF is excluded from Git; use the DOI for the source.
 
 ## Educational purpose and confidential study data
 
@@ -88,13 +93,7 @@ The original PSCAD project, wrapper, port mapping and battery/SOC model are not
 included. Initial SOC and energy capacity initialize the external battery
 model; current SOC and simulation time are supplied to the controller.
 
-## Paper
 
-Nguyen-Hoang, N.-D., et al. (2022). *Operation Method of Energy Storage System
-Replacing Governor for Frequency Regulation of Synchronous Generator without
-Reserve*. **Energies, 15**, 798. https://doi.org/10.3390/en15030798
-
-The paper is CC BY 4.0. The PDF is excluded from Git; use the DOI for the source.
 
 ## Quick start
 
