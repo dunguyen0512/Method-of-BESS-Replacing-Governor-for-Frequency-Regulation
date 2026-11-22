@@ -1,5 +1,21 @@
 # Testing the Python controller
 
+## Recommended simple version
+
+```powershell
+cd C:\Users\ndnguyen\Desktop\BESS_GOV
+py -m pip install -r requirements-plot.txt
+py python/simple_bess.py --initial-soc 0.70 --droop-rate 0.05 --ess-power-mw 25 --ess-energy-mwh 6.25
+```
+
+Open `results/simple_bess.png`. The code uses small functions with explicit
+inputs and no classes. This version includes the author's confirmed rule:
+capture high/low frequency activation, hold for 5 seconds, then re-evaluate.
+For another test, change the four numeric arguments and use
+`--output results/test2.png`. SOC is a fraction; droop is the generator-base
+fraction; ESS power is MW and energy is MWh. See the README for function order.
+The sections below describe the earlier test interfaces, which remain available.
+
 ## Export a chart like Figure 8
 
 Run from the main project folder (not its `python` subfolder):

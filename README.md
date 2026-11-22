@@ -32,25 +32,39 @@ Initial SOC -> BESS SOC calculation -> current SOC   |
 
 The C implementation included a **latch for the frequency-event signal**.
 Its role was to retain the event/activation indication used to enable the
-control algorithm. The author describes a frequency-rise timing example of
-**less than 5 seconds**. Whether that timing is a trigger window or a minimum
-persistence condition, and the latch reset/release conditions, still need to
-be specified before reconstructing that part of the original implementation.
-The 5-second example comes from the author's implementation description; it
-is not a numerical setting supplied by the paper.
+control algorithm. The author confirmed the rule: **hold for 5 seconds after
+detection, then re-evaluate**. This duration comes from the author's implementation
+description, not a numerical setting supplied by the paper.
+
+The author clarified that actual frequency can fluctuate around the threshold
+and sensor signals can be delayed. The latch therefore captures a **high- or
+low-frequency event indicator** to activate the BESS algorithm. It retains the
+event indication, rather than freezing the numerical frequency measurement
+used for droop calculation. In `simple_bess.py`, deadband return or an opposite
+crossing does not interrupt the active 5-second hold. At expiry, an in-band
+measurement clears the indicator; an out-of-band measurement captures the
+current direction for another hold interval. Reset both latch variables at the
+start of a simulation. Re-evaluation happens on the first sample at/after expiry.
+
+During a hold the live droop contribution is limited to the captured direction:
+high-frequency activation permits charging droop, low-frequency activation
+permits discharging droop. If the measured frequency enters the deadband or
+crosses the opposite threshold, that droop contribution becomes zero until
+re-evaluation; the held SOC contribution remains. This direction-limiting
+choice is explicit in `control_step()`. SOC emergency overrides still take priority.
 
 This event latch is separate from holding the initial `P_SOC` contribution
-during droop operation (Section 3.3.2). Retaining an activation flag does not
-by itself specify that the numerical frequency measurement is frozen.
+during droop operation (Section 3.3.2).
 
 **Current repository status:** the C files contain a reusable controller core
 and a standalone demonstration. The original PSCAD project, function-block
-wrapper, port mapping, SOC model, and frequency-event latch are not included.
+wrapper, port mapping, SOC model, and C frequency-event latch are not included.
 The present core takes current frequency and current SOC at each call; it has
 no initial-SOC input or elapsed-time input. A PSCAD wrapper must initialize the
 SOC model, preserve controller/latch state between simulation steps, and supply
 the block's activation logic. The current examples therefore do not reproduce
-the complete original PSCAD implementation or its network results.
+the complete original PSCAD implementation or its network results. The new
+functional Python example includes the confirmed 5-second activation latch.
 
 ## Paper
 
@@ -61,6 +75,48 @@ Reserve*. **Energies, 15**, 798. https://doi.org/10.3390/en15030798
 The paper is CC BY 4.0. The PDF is excluded from Git; use the DOI for the source.
 
 ## Quick start
+
+**Start with `python/simple_bess.py`** for the readable function-by-function
+version. It has no controller classes, enums or configuration objects:
+
+```powershell
+py -m pip install -r requirements-plot.txt
+py python/simple_bess.py --initial-soc 0.70 --droop-rate 0.05 --ess-power-mw 25 --ess-energy-mwh 6.25
+```
+
+Output: `results/simple_bess.png` only. SOC `0.70` means 70%; droop `0.05`
+means 5% on the generator base. ESS size needs two values: PCS power in MW
+and stored energy in MWh. The example uses the same assumed narrow center
+band and frequency trace as the Figure 8 demo; edit the clearly labeled
+constants at the top to change thresholds.
+
+Read the functions in this order:
+
+1. `frequency_input(time_s)` supplies the illustrative frequency trace.
+2. `frequency_indicator(...)` detects high (+1), low (-1), or normal (0).
+3. `latch_frequency(...)` holds the event direction for 5 seconds.
+4. `select_state(...)` follows Fig. 7 using the retained indicator and current SOC.
+5. `soc_power(...)` and `droop_power(...)` calculate the two power contributions.
+6. `control_step(...)` combines them and retains the SOC contribution in droop.
+7. `update_soc(...)` calculates the next SOC for the ideal battery example.
+8. `simulate(...)` runs successive samples; `save_png(...)` exports the figure.
+
+For direct Python use:
+
+```python
+from simple_bess import simulate, save_png
+
+results = simulate(initial_soc=0.70, droop_rate=0.05,
+                   ess_power_mw=25.0, ess_energy_mwh=6.25)
+save_png(results, "results/my_test.png")
+```
+
+Each result row contains `(time_s, frequency_hz, soc, state, p_soc, p_droop, p_ess)`.
+`held_soc_power` retains the SOC contribution, not the frequency signal.
+`indicator` and `hold_until_s` retain event direction and latch expiry separately.
+Use `--hold-seconds 5` to set the hold duration (default 5). The earlier
+class-based interface remains available for existing tests; it and the earlier
+`simulate_figure8.py` example do not include this new event latch.
 
 To export three panels like **Figure 8** (frequency, SOC, and ESS power):
 
