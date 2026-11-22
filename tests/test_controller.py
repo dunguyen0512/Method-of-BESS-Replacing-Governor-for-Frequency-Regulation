@@ -9,10 +9,35 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "python"))
-from bess_controller import Controller, Config
+from bess_controller import Controller, Config, State
 
 
 class ControllerTests(unittest.TestCase):
+    def test_all_nine_flowchart_states(self):
+        samples = [(60.1,.5,1),(60.1,.9,2),(60,.1,3),(60,.3,4),
+                   (60,.5,5),(60,.7,6),(60,.9,7),(59.9,.1,8),(59.9,.5,9)]
+        for frequency,soc,state in samples:
+            self.assertEqual(int(Controller().step(frequency,soc).state),state)
+
+    def test_figure9_transitions(self):
+        c = Controller()
+        states = [c.step(f,s).state for f,s in [(60,.7),(60,.5),(59.9,.5),(60,.3),(60,.5)]]
+        self.assertEqual(states,[6,5,9,4,5])
+
+    def test_figure8_example_energy_and_states(self):
+        from simulate_figure8 import simulate
+        config, rows = simulate()
+        transitions = []
+        for row in rows:
+            if not transitions or row['state'] != transitions[-1]:
+                transitions.append(row['state'])
+        self.assertEqual(transitions,[6,5,9,4,5])
+        for first, second in zip(rows,rows[1:]):
+            expected = first['soc'] - first['power_mw'] * (second['time_s']-first['time_s']) / 22500
+            self.assertAlmostEqual(second['soc'],expected,places=12)
+        self.assertTrue(all(row['power_mw'] == 0 for row in rows[3500:]))
+        self.assertAlmostEqual(rows[-1]['soc'],.65,places=3)
+
     def test_soc_regions_and_edges(self):
         for soc, expected in [(0,-3.75),(.2,-3.75),(.3,-2.5),(.4,-2.5),
                               (.5,0),(.6,0),(.7,2.5),(.8,2.5),(1,3.75)]:
@@ -50,7 +75,7 @@ class ControllerTests(unittest.TestCase):
         class CConfig(ctypes.Structure):
             _fields_ = [(n,ctypes.c_double) for n in vars(Config())]
         class State(ctypes.Structure):
-            _fields_ = [("active",ctypes.c_int),("held",ctypes.c_double)]
+            _fields_ = [("active",ctypes.c_int),("held",ctypes.c_double),("state",ctypes.c_int)]
         class Out(ctypes.Structure):
             _fields_ = [("soc",ctypes.c_double),("droop",ctypes.c_double),
                         ("power",ctypes.c_double),("active",ctypes.c_int)]
@@ -75,6 +100,7 @@ class ControllerTests(unittest.TestCase):
                             (output.power,expected.power_mw)]:
                     self.assertAlmostEqual(a,b,places=10)
                 self.assertEqual(bool(output.active),expected.mode == "droop")
+                self.assertEqual(state.state,int(expected.state))
         self.assertEqual(lib.bess_step(ctypes.byref(state),ctypes.byref(config),
                          60,math.nan,ctypes.byref(output)),-1)
 

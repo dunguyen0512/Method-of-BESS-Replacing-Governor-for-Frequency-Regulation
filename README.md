@@ -23,7 +23,7 @@ py -m pip install -r requirements-plot.txt
 py python/simulate_figure8.py
 ```
 
-Open `results/figure8_demo.png`. PDF, SVG and CSV are also exported.
+Open `results/figure8_state_machine.png`. PDF, SVG and CSV are also exported.
 This illustrative example uses a prescribed frequency disturbance and an ideal
 6.25 MWh battery energy balance to calculate SOC. It is not a reproduction of
 the original Fig. 8 data or a grid simulation. See [TESTING.md](TESTING.md).
@@ -52,6 +52,34 @@ On Windows, run `./build/bess_demo.exe`. Both demos print the same six samples
 as CSV, including held SOC power and emergency overrides.
 
 ## Figure 5 logic
+
+The implementation now selects explicit numbered states by the **Fig. 7
+flowchart**, with transitions observable as in **Fig. 6**. CSV exports include
+`state`. Fig. 9's example sequence is tested as 6 -> 5 -> 9 -> 4 (then 5).
+
+| State | Branch / action |
+| --- | --- |
+| 1 | High frequency, SOC not high: droop + held SOC contribution |
+| 2 | High frequency, high SOC: emergency discharge |
+| 3 | Deadband, low SOC: emergency charge |
+| 4 | Deadband, medium-low SOC: recovery charge |
+| 5 | Deadband, center SOC: zero power |
+| 6 | Deadband, medium-high SOC: recovery discharge |
+| 7 | Deadband, high SOC: emergency discharge |
+| 8 | Low frequency, low SOC: emergency charge |
+| 9 | Low frequency, SOC not low: droop + held SOC contribution |
+
+On entering states 1/9, the SOC contribution is captured and then held while
+remaining in droop states, as described in Section 3.3.2. Other states update
+the recovery contribution and set droop power to zero. This refactor makes the
+existing branch logic explicit; it does not invent an additional recovery latch.
+The figure has incomplete/inconsistent equality branches and an apparent
+Yes/No label typo; boundary conventions are documented below.
+
+The **Figure 8 demo** uses separate illustrative ML=0.6499, MH=0.6501 settings
+to show recovery to approximately 65%, as visible in that figure. They are
+assumptions for this example, not recovered parameters. The reusable controller
+defaults remain 0.40/0.60. No unreported 65% recovery-target latch is introduced.
 
 Positive power means **discharging into the grid**; negative means charging.
 SOC is a fraction, frequency is Hz, and output power is MW.

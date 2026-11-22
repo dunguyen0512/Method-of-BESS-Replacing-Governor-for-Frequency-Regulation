@@ -31,7 +31,7 @@ def run(input_path, output_path, config):
                 passed = "" if not expected else abs(out.power_mw - float(expected)) <= 1e-6
                 results.append(dict(case=case, time_s=time, frequency_hz=frequency,
                                     soc=soc, soc_mw=out.soc_mw, droop_mw=out.droop_mw,
-                                    power_mw=out.power_mw, mode=out.mode,
+                                    power_mw=out.power_mw, mode=out.mode, state=int(out.state),
                                     expected_power_mw=expected, passed=passed))
             except (ValueError, TypeError) as error:
                 raise ValueError(f"Input line {line}: {error}") from error

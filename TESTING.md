@@ -11,18 +11,21 @@ py python/simulate_figure8.py
 ```
 
 Use `python` instead of `py` if that is your working launcher. Matplotlib is
-needed only for plotting. Open `results/figure8_demo.png` for the three panels:
+needed only for plotting. Open `results/figure8_state_machine.png` for the three panels:
 frequency with deadband, SOC in percent, and P_SOC / P_droop / P_ESS in MW.
 PDF and SVG support high-quality export; CSV contains every numerical sample.
 
 This new demo calculates SOC from output power using an **ideal battery**:
 `SOC_next = SOC - P_ESS_MW * dt_seconds / (3600 * energy_MWh)`.
 The paper's 6.25 MWh capacity is used, with assumed 70% initial SOC, unity
-efficiency and a 1-second time step. Frequency is a prescribed ramped dip from
-60 to 59.965 Hz, starting at 1500 s, recovering by 3600 s; it is not calculated
+efficiency and a 1-second time step. Frequency is a prescribed piecewise-linear dip from
+60 to 59.955 Hz, crossing the lower deadband around 900 and 2150 s,
+recovering to 60 Hz by 2300 s; it is not calculated
 from a network. These are illustrative settings, not recovered original data.
-The controller retains its assumed +/-0.02 Hz deadband and 20/40/60/80% SOC
-thresholds. Change `frequency_at()` in `python/simulate_figure8.py` to design
+The revised demo uses an assumed +/-0.02 Hz deadband and L=20%, H=80%, with
+a narrow center band ML=64.99%, MH=65.01%, to illustrate the approximately
+65% plateaus in Fig. 8. These thresholds are not recovered paper parameters.
+The reusable controller defaults are unchanged. Change `frequency_at()` in `python/simulate_figure8.py` to design
 another frequency event. Compare smaller time steps when studying boundaries.
 
 ```powershell
@@ -58,7 +61,7 @@ The compiler installation is separate from Python.
 python -m unittest discover -s tests -v
 ```
 
-Expected: four Python tests pass, with the optional C comparison skipped.
+Expected: seven Python tests pass, with the optional C comparison skipped.
 These check SOC boundaries, recovery magnitudes, droop calculation, held SOC
 bias, emergency overrides, saturation, reset, and invalid inputs.
 

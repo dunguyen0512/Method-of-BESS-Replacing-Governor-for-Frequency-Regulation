@@ -26,7 +26,8 @@ def plot_case(rows, config, output_stem, title):
         ("droop_mw", r"$P_{droop}$", "#c34a29", ":"),
         ("power_mw", r"$P_{ESS}$", "#2155a3", "-")]:
         axes[2].plot(time, [float(r[key]) for r in rows],
-                     label=label, color=color, linestyle=style, linewidth=1.8)
+                     label=label, color=color, linestyle=style, linewidth=1.8,
+                     zorder=1 if key == "power_mw" else 2)
     axes[2].set_ylabel("(c) ESS power [MW]")
     axes[2].set_xlabel("Time [s]")
     for ax in axes:

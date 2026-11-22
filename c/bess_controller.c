@@ -7,7 +7,7 @@ BessConfig bess_default_config(void) {
     return c;
 }
 void bess_reset(BessController *s) {
-    if (s) { s->active = 0; s->held_soc_mw = 0.0; }
+    if (s) { s->active = 0; s->held_soc_mw = 0.0; s->state = 0; }
 }
 static int valid(const BessConfig *c) {
     return c && isfinite(c->nominal_hz) && c->nominal_hz > 0 &&
@@ -30,7 +30,15 @@ int bess_step(BessController *s, const BessConfig *c, double f, double soc, Bess
     delta = f - c->nominal_hz;
     high_f = delta > c->deadband_hz + 1e-12;
     low_f = delta < -c->deadband_hz - 1e-12;
-    enabled = (high_f && soc <= c->high) || (low_f && soc > c->low);
+    /* Fig. 7: frequency checks precede the SOC recovery cascade. */
+    if (high_f) s->state = soc > c->high ? BESS_HIGH_F_HIGH_SOC : BESS_HIGH_F_DROOP;
+    else if (low_f) s->state = soc <= c->low ? BESS_LOW_F_LOW_SOC : BESS_LOW_F_DROOP;
+    else if (soc > c->high) s->state = BESS_DEADBAND_HIGH_SOC;
+    else if (soc > c->medium_high) s->state = BESS_DEADBAND_MEDIUM_HIGH_SOC;
+    else if (soc > c->medium_low) s->state = BESS_DEADBAND_CENTER;
+    else if (soc > c->low) s->state = BESS_DEADBAND_MEDIUM_LOW_SOC;
+    else s->state = BESS_DEADBAND_LOW_SOC;
+    enabled = s->state == BESS_HIGH_F_DROOP || s->state == BESS_LOW_F_DROOP;
     if (enabled) {
         if (!s->active) s->held_soc_mw = recovery;
         recovery = s->held_soc_mw;
