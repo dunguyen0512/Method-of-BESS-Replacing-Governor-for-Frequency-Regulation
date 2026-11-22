@@ -5,6 +5,21 @@ the paper below. The control decisions follow the **Fig. 6 state machine** and
 **Fig. 7 flowchart**, with Fig. 5 and Eqs. (5), (7)-(8) defining droop and SOC
 management. Python provides standalone tests and a PNG example.
 
+## Educational purpose and confidential study data
+
+The original paper used a Korean power network. Its underlying network data
+and grid structure are confidential and are excluded from this repository.
+
+This project provides a simple educational version of the paper's BESS
+operation method. The aim is to study frequency-event activation, droop
+control and SOC management, and their interaction with a generic **aggregate
+generator model** using illustrative parameters. Reproducing the Korean
+network or its topology is outside this project's scope.
+
+The current Python examples use artificial frequency inputs and an ideal
+battery energy balance. They demonstrate the controller; a closed-loop
+aggregate-generator model is not yet included.
+
 ## Original C implementation in PSCAD/EMTDC
 
 The author's original C controller was embedded in a **PSCAD function block**.
@@ -88,10 +103,10 @@ values, exports PNG figures, and writes numerical signals and the test matrix
 as CSV. See [TEST_MATRIX.md](TEST_MATRIX.md) for scenarios, expected behavior,
 noise settings and pass/fail criteria. This runner passes its nominal frequency
 and threshold explicitly; it does not change the older Fig. 8 demo defaults.
-These are software checks of the controller, not defined power-system stress
-tests. Power-system evaluation should use the generator-trip, fault and line-trip
-events from the paper in PSCAD. The guide defines the required operating points,
-BESS power/energy limits and measurements for that separate evaluation.
+These are software checks of the controller. For educational power-system
+studies, a generic aggregate generator can represent generation/load imbalance
+without the original Korean network data or topology. The guide describes
+suitable equivalent disturbances and BESS power/energy measurements.
 
 **Start with `python/simple_bess.py`** for the readable function-by-function
 version. It has no controller classes, enums or configuration objects:

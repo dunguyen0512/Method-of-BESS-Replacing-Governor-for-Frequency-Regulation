@@ -13,24 +13,30 @@ point, BESS ratings, initial SOC, response obligation and acceptance criteria.
 Stress means approaching a specified power, energy, SOC or response-time limit
 under that condition; it does not mean drawing a large arbitrary frequency swing.
 
-For power-system evaluation, use the PSCAD events described in the paper:
+The paper used a Korean power network whose underlying data and grid structure
+are confidential and are excluded here. For an educational extension, use a
+generic aggregate generator with illustrative inertia, damping and power-balance
+parameters. No actual network topology is needed for that aggregate model.
 
-| System event | Source of frequency | What to evaluate at the BESS |
+| Equivalent disturbance in an aggregate model | Expected tendency | What to evaluate at the BESS |
 | --- | --- | --- |
-| Trip generators 1-4 (paper Case 1) | Simulated target-generator frequency following the generation loss | Discharge response, PCS saturation, available discharge energy, lower-SOC override and recovery |
-| Three-phase fault at bus 11, cleared after five cycles (paper Case 2) | Target-generator frequency from the fault and clearing simulation | Activation and response timing, electrical torque and post-fault frequency response; a frequency-only input cannot assess converter voltage/current behavior |
-| Trip the line between buses 16-17 (paper Case 3) | Target-generator frequency from the changed network topology | Direction and magnitude of BESS response determined by that simulation, power limits, SOC evolution and recovery |
+| Reduced mechanical input or increased load | Frequency falls under a power deficit | Discharge response, PCS saturation, available energy, lower-SOC override and recovery |
+| Increased mechanical input or reduced load | Frequency rises under a power surplus | Charging response, charging headroom, upper-SOC override and recovery |
+| Temporary power imbalance followed by restoration | Frequency departure and subsequent recovery | Activation hold, droop response and SOC management after the disturbance |
+| Repeated or sustained imbalance | Repeated service or extended energy demand | Power limits, energy availability, SOC transitions and recovery |
 
-Repeat each actual system event at low, center and high initial SOC, and at
-the relevant pre-disturbance generation/load operating points. Compare matched
+Repeat each equivalent disturbance at low, center and high initial SOC, and at
+illustrative pre-disturbance generation/load operating points. Compare matched
 simulations with conventional governor control and the proposed BESS control,
-as in the paper. A prescribed frequency playback can verify controller response
-to the trace; only the closed-loop simulation establishes its effect on frequency.
+as an educational comparison. The aggregate model should generate frequency from
+power imbalance, with BESS output fed back into that balance. The current signal
+runner supplies frequency directly and does not yet implement this closed loop.
+An equivalent power disturbance does not reproduce a detailed network fault.
 
 For each case, record:
 
-- Network disturbance, location, start/clearing time, operating point and models.
-- Frequency deviation, nadir/peak, RoCoF and recovery from the network model.
+- Equivalent power disturbance, magnitude, start/end times, operating point and models.
+- Frequency deviation, nadir/peak, RoCoF and recovery from the aggregate model.
 - BESS activation delay, requested/applied power, peak `abs(P)/PCS_rating`,
   time in saturation, SOC minimum/maximum and recovery time.
 - Delivered/absorbed energy and available battery energy/headroom. Under the
@@ -41,9 +47,9 @@ For each case, record:
   current/voltage limits when those models are present.
 
 Acceptance limits for frequency, response delay and recovery must come from
-the selected study requirements; none are invented here. Numerical parameters
-for network dynamics cannot be recovered from Table 1 alone. The current Python
-suite does not yet generate these PSCAD contingency responses.
+the selected educational study assumptions and be reported alongside results.
+All aggregate-model parameters should be explicitly identified as illustrative,
+without using or implying access to the confidential Korean network data.
 
 The test runner is `python/test_frequency_signals.py`. Functions are separated
 into waveform creation, noise generation, case evaluation and PNG plotting.

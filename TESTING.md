@@ -3,7 +3,7 @@
 ## Recommended simple version
 
 ```powershell
-cd C:\Users\ndnguyen\Desktop\BESS_GOV
+cd C:\Users\Desktop\BESS_GOV
 py -m pip install -r requirements-plot.txt
 py python/simple_bess.py --initial-soc 0.70 --droop-rate 0.05 --ess-power-mw 25 --ess-energy-mwh 6.25
 ```
@@ -21,7 +21,7 @@ The sections below describe the earlier test interfaces, which remain available.
 Run from the main project folder (not its `python` subfolder):
 
 ```powershell
-cd C:\Users\ndnguyen\Desktop\BESS_GOV
+cd C:\Users\Desktop\BESS_GOV
 py -m pip install -r requirements-plot.txt
 py python/simulate_figure8.py
 ```
@@ -61,7 +61,7 @@ in the same case; the short Fig. 5 examples mainly test individual points.
 ## 1. Open PowerShell in the project folder
 
 ```powershell
-cd C:\Users\ndnguyen\Desktop\BESS_GOV
+cd C:\Users\Desktop\BESS_GOV
 python --version
 python python/bess_controller.py
 ```
@@ -153,13 +153,19 @@ For manual checking, at 59.90 Hz the deadband-adjusted deviation is
 `-612 * (-0.08) / (60 * 0.05) = +16.32 MW`. Add the held SOC bias,
 then apply the +/-25 MW limit.
 
-## 5. Understand what these tests establish
+## 5. Educational scope and original study data
 
-This runner evaluates the controller against frequency and SOC that **you supply**.
-Time labels order samples; it does not integrate battery energy or compute grid
-frequency. SOC changes in the CSV are prescribed rather than calculated.
-It therefore tests the Fig. 5 logic, not the network performance in Figs. 13-15.
-The paper's generator trip, three-phase fault and line trip results require a
-generator/network dynamic model and converter/battery models. A frequency trace
-exported from such a model can be used as input here, but this runner alone
-cannot establish the paper's frequency nadirs or governor comparison.
+The paper studied a Korean power network. Its underlying network data and grid
+structure are confidential and are not included in this repository.
+
+This repository is a simplified version for study: its purpose is to explain
+the BESS state machine, frequency-event latch, droop control and SOC management,
+and how these controls can operate with a generic **aggregate generator model**.
+Such a model can represent the combined generator response through equivalent
+inertia, damping and power balance, using illustrative parameters rather than
+the Korean network data or topology.
+
+The current CSV runner accepts supplied frequency and SOC samples. The Python
+simulation examples calculate SOC with an ideal battery energy balance while
+using artificial frequency inputs. A closed-loop aggregate-generator simulation
+is a separate extension; it is not yet implemented in these examples.
