@@ -76,6 +76,19 @@ The paper is CC BY 4.0. The PDF is excluded from Git; use the DOI for the source
 
 ## Quick start
 
+For **seed-100 artificial frequency signals and an evaluation matrix**, run:
+
+```powershell
+py python/test_frequency_signals.py --base-hz 60 --output-dir results/frequency_tests_60hz
+```
+
+Choose `--base-hz 50` for a 50 Hz system. Each signal lasts 6000 s; thresholds
+are +/-0.5 Hz. The default suite evaluates 16 profiles at five initial SOC
+values, exports PNG figures, and writes numerical signals and the test matrix
+as CSV. See [TEST_MATRIX.md](TEST_MATRIX.md) for scenarios, expected behavior,
+noise settings and pass/fail criteria. This runner passes its nominal frequency
+and threshold explicitly; it does not change the older Fig. 8 demo defaults.
+
 **Start with `python/simple_bess.py`** for the readable function-by-function
 version. It has no controller classes, enums or configuration objects:
 
@@ -266,7 +279,9 @@ This educational reference needs plant-specific validation before integration.
 
 ## Verification status
 
-Seven Python tests and 19 CSV expectations passed in the reconstruction environment.
+Fourteen Python tests and the original 19 CSV expectations passed. The artificial
+frequency suite also passed 80 cases at 50 Hz and 80 cases at 60 Hz, with all
+nine states covered at each base frequency. See [TEST_MATRIX.md](TEST_MATRIX.md).
 The C build and C/Python comparison could not run: the installed MinGW GCC
 failed to start with Windows error 623 (Illegal System DLL Relocation), and
 execution outside the sandbox was declined. The cross-language test is provided

@@ -25,17 +25,18 @@ def frequency_input(time_s):
     return NOMINAL_HZ
 
 
-def frequency_indicator(frequency_hz):
+def frequency_indicator(frequency_hz, nominal_hz=NOMINAL_HZ, threshold_hz=DEADBAND_HZ):
     """+1 = high frequency, -1 = low frequency, 0 = inside deadband."""
-    deviation = frequency_hz - NOMINAL_HZ
-    if deviation > DEADBAND_HZ + 1e-12:
+    deviation = frequency_hz - nominal_hz
+    if deviation > threshold_hz + 1e-12:
         return 1
-    if deviation < -DEADBAND_HZ - 1e-12:
+    if deviation < -threshold_hz - 1e-12:
         return -1
     return 0
 
 
-def latch_frequency(time_s, frequency_hz, indicator, hold_until_s, hold_seconds=5.0):
+def latch_frequency(time_s, frequency_hz, indicator, hold_until_s, hold_seconds=5.0,
+                    nominal_hz=NOMINAL_HZ, threshold_hz=DEADBAND_HZ):
     """Hold event direction for 5 s after detection, then re-evaluate.
 
     Pass both returned values into the next call. At expiry: reset if inside
@@ -48,16 +49,17 @@ def latch_frequency(time_s, frequency_hz, indicator, hold_until_s, hold_seconds=
         raise ValueError("Invalid latch time, frequency, duration or indicator")
     if indicator != 0 and time_s < hold_until_s:
         return indicator, hold_until_s
-    indicator = frequency_indicator(frequency_hz)
+    indicator = frequency_indicator(frequency_hz, nominal_hz, threshold_hz)
     if indicator != 0:
         return indicator, time_s + hold_seconds
     return 0, time_s
 
 
-def select_state(frequency_hz, soc, indicator=None):
+def select_state(frequency_hz, soc, indicator=None,
+                 nominal_hz=NOMINAL_HZ, threshold_hz=DEADBAND_HZ):
     """Figure 7: check frequency first, then SOC. Return state 1 to 9."""
     if indicator is None:
-        indicator = frequency_indicator(frequency_hz)
+        indicator = frequency_indicator(frequency_hz, nominal_hz, threshold_hz)
     if indicator == 1:
         if soc > HIGH_SOC:
             return 2
@@ -90,40 +92,43 @@ def soc_power(soc, ess_power_mw):
     return 0.15 * ess_power_mw
 
 
-def droop_power(frequency_hz, droop_rate):
+def droop_power(frequency_hz, droop_rate, nominal_hz=NOMINAL_HZ, threshold_hz=DEADBAND_HZ):
     """Generator-base droop. Use 0.05 for 5%, output in MW."""
-    deviation = frequency_hz - NOMINAL_HZ
-    if deviation > DEADBAND_HZ:
-        error_hz = deviation - DEADBAND_HZ
-    elif deviation < -DEADBAND_HZ:
-        error_hz = deviation + DEADBAND_HZ
+    deviation = frequency_hz - nominal_hz
+    if deviation > threshold_hz:
+        error_hz = deviation - threshold_hz
+    elif deviation < -threshold_hz:
+        error_hz = deviation + threshold_hz
     else:
         return 0.0
-    return -GENERATOR_BASE_MW * error_hz / (NOMINAL_HZ * droop_rate)
+    return -GENERATOR_BASE_MW * error_hz / (nominal_hz * droop_rate)
 
 
 def control_step(frequency_hz, soc, droop_rate, ess_power_mw, held_soc_power=None,
-                 indicator=None):
+                 indicator=None, nominal_hz=NOMINAL_HZ, threshold_hz=DEADBAND_HZ):
     """One sample. Pass returned held_soc_power into the next call.
 
     None means droop was inactive. A number (including zero) is the SOC
     contribution held during states 1/9. The separate indicator argument comes
     from latch_frequency(). If omitted, use the instantaneous frequency region.
     """
-    if not all(isfinite(x) for x in (frequency_hz, soc, droop_rate, ess_power_mw)):
+    if not all(isfinite(x) for x in (frequency_hz, soc, droop_rate, ess_power_mw,
+                                    nominal_hz, threshold_hz)):
         raise ValueError("Inputs must be finite")
     if frequency_hz <= 0 or not 0 <= soc <= 1 or droop_rate <= 0 or ess_power_mw <= 0:
         raise ValueError("Use positive frequency, droop and MW rating; SOC in [0,1]")
+    if nominal_hz <= 0 or not 0 <= threshold_hz < nominal_hz:
+        raise ValueError("Use a positive nominal frequency and threshold in [0,nominal)")
     if indicator is not None and indicator not in (-1,0,1):
         raise ValueError("Indicator must be -1, 0 or +1")
-    state = select_state(frequency_hz, soc, indicator)
+    state = select_state(frequency_hz, soc, indicator, nominal_hz, threshold_hz)
     p_soc = soc_power(soc, ess_power_mw)
     p_droop = 0.0
     if state == 1 or state == 9:
         if held_soc_power is None:
             held_soc_power = p_soc
         p_soc = held_soc_power
-        p_droop = droop_power(frequency_hz, droop_rate)
+        p_droop = droop_power(frequency_hz, droop_rate, nominal_hz, threshold_hz)
         # Keep the held event's direction, but never freeze measured frequency.
         # If it returns inside deadband or crosses the other side, droop is 0
         # until the latch is re-evaluated. The held SOC bias remains unchanged.
