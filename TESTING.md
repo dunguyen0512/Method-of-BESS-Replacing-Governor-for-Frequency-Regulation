@@ -1,5 +1,7 @@
 # Testing the Python controller
 
+See [test.md](test.md) for the input-frequency scope and PSCAD adaptation note.
+
 ## Recommended simple version
 
 ```powershell

@@ -1,4 +1,4 @@
-# C function blocks for PSCAD integration
+# C controller function guide
 
 Read `bess_controller.c` in numbered function order:
 
@@ -17,45 +17,6 @@ Read `bess_controller.c` in numbered function order:
 There are two separate memories: the frequency-event indicator is held for
 5 seconds; the initial SOC power contribution is held throughout successive
 droop states. Numerical frequency is never frozen.
-
-## Call sequence
-
-During simulation initialization:
-
-```c
-BessConfig settings = bess_default_config();
-BessController memory;
-BessOutput output;
-settings.nominal_hz = 60.0;   /* Or 50.0. */
-settings.deadband_hz = 0.5;
-settings.pcs_mw = 25.0;
-settings.droop = 0.05;       /* Generator-base droop: 5%. */
-settings.hold_seconds = 5.0;
-bess_reset(&memory);
-```
-
-Keep settings and memory alive between samples, one instance per BESS.
-Initialize PSCAD's battery model with initial SOC (e.g. 0.70) and energy
-capacity (e.g. 6.25 MWh); those belong to the external battery/SOC model.
-
-Once per increasing control-sample time:
-
-```c
-int result = bess_step(&memory, &settings,
-                       time_s, measured_frequency_hz, current_soc, &output);
-if (result == 0) {
-    /* Connect output.power_mw to the BESS active-power reference.
-     * Expose output.state and output.frequency_indicator for checking. */
-}
-```
-
-Positive MW discharges; negative MW charges. Pass CURRENT SOC, not the initial
-value on every call. Adapt ports, storage, calling convention, initialization
-and MW/pu conversion in your PSCAD component; this is a C call example, not a
-ready-to-import PSCAD block. Handle a nonzero return in that wrapper.
-Repeated/decreasing time or invalid inputs return -1 without changing memory
-or output. Reset before restarting or changing configuration. Sample once
-per control step rather than repeatedly during solver iterations.
 
 High/low activation cannot change before hold expiry. At expiry normal clears
 the indicator; high/low begins another hold. Emergency SOC states 2/8 still

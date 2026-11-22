@@ -82,8 +82,8 @@ during droop operation (Section 3.3.2).
 **Current repository status:** both the C controller and functional Python
 example include the 5-second frequency-event latch. C uses small numbered
 functions, with comments following Fig. 6 states and Fig. 7 branches.
-The main call is `bess_step(memory, settings, time_s, frequency_hz, current_soc, output)`.
-See [c/README.md](c/README.md) for initialization and the PSCAD call sequence.
+See [c/README.md](c/README.md) for the function guide and [test.md](test.md)
+for a brief note about artificial frequency inputs and PSCAD adaptation.
 The original PSCAD project, wrapper, port mapping and battery/SOC model are not
 included. Initial SOC and energy capacity initialize the external battery
 model; current SOC and simulation time are supplied to the controller.
