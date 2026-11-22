@@ -57,9 +57,17 @@ if __name__ == "__main__":
     parser.add_argument("input", help="Input CSV")
     parser.add_argument("--output", default="results/results.csv")
     parser.add_argument("--config", help="Optional JSON containing Config overrides")
+    parser.add_argument("--plot-dir", help="Export PNG/PDF/SVG charts for each case (requires Matplotlib)")
     args = parser.parse_args()
     try:
         overrides = json.loads(Path(args.config).read_text(encoding="utf-8")) if args.config else {}
-        raise SystemExit(1 if run(args.input, args.output, Config(**overrides)) else 0)
+        config = Config(**overrides)
+        failures = run(args.input, args.output, config)
+        if args.plot_dir:
+            from plot_results import plot_csv
+            plot_csv(args.output, config, args.plot_dir)
+        raise SystemExit(1 if failures else 0)
+    except ImportError:
+        parser.exit(2, "Install plotting dependency: py -m pip install -r requirements-plot.txt\n")
     except (ValueError, TypeError, OSError) as error:
         parser.exit(2, f"Error: {error}\n")

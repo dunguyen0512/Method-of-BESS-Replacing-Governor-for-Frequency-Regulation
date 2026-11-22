@@ -1,5 +1,44 @@
 # Testing the Python controller
 
+## Export a chart like Figure 8
+
+Run from the main project folder (not its `python` subfolder):
+
+```powershell
+cd C:\Users\ndnguyen\Desktop\BESS_GOV
+py -m pip install -r requirements-plot.txt
+py python/simulate_figure8.py
+```
+
+Use `python` instead of `py` if that is your working launcher. Matplotlib is
+needed only for plotting. Open `results/figure8_demo.png` for the three panels:
+frequency with deadband, SOC in percent, and P_SOC / P_droop / P_ESS in MW.
+PDF and SVG support high-quality export; CSV contains every numerical sample.
+
+This new demo calculates SOC from output power using an **ideal battery**:
+`SOC_next = SOC - P_ESS_MW * dt_seconds / (3600 * energy_MWh)`.
+The paper's 6.25 MWh capacity is used, with assumed 70% initial SOC, unity
+efficiency and a 1-second time step. Frequency is a prescribed ramped dip from
+60 to 59.965 Hz, starting at 1500 s, recovering by 3600 s; it is not calculated
+from a network. These are illustrative settings, not recovered original data.
+The controller retains its assumed +/-0.02 Hz deadband and 20/40/60/80% SOC
+thresholds. Change `frequency_at()` in `python/simulate_figure8.py` to design
+another frequency event. Compare smaller time steps when studying boundaries.
+
+```powershell
+py python/simulate_figure8.py --initial-soc 0.75 --dt 0.5 --output results/my_figure8
+```
+
+For your own prescribed frequency/SOC CSV, export a separate chart per case:
+
+```powershell
+py python/run_cases.py examples/my_cases.csv --output results/my_results.csv --plot-dir results/my_charts
+```
+
+Each independent case gets its own chart, so unrelated experiments are not
+joined as a continuous time trace. A useful time plot needs multiple samples
+in the same case; the short Fig. 5 examples mainly test individual points.
+
 ## 1. Open PowerShell in the project folder
 
 ```powershell

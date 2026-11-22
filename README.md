@@ -16,6 +16,18 @@ The paper is CC BY 4.0. The PDF is excluded from Git; use the DOI for the source
 
 ## Quick start
 
+To export three panels like **Figure 8** (frequency, SOC, and ESS power):
+
+```powershell
+py -m pip install -r requirements-plot.txt
+py python/simulate_figure8.py
+```
+
+Open `results/figure8_demo.png`. PDF, SVG and CSV are also exported.
+This illustrative example uses a prescribed frequency disturbance and an ideal
+6.25 MWh battery energy balance to calculate SOC. It is not a reproduction of
+the original Fig. 8 data or a grid simulation. See [TESTING.md](TESTING.md).
+
 Python 3.8+ (standard library only):
 
 ```sh
